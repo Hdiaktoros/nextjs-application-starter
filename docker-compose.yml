@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  fastapi:
+    build: .
+    command: uvicorn routes.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=your_jwt_secret
+    depends_on:
+      - redis
+
+  celery_worker:
+    build: .
+    command: celery -A core.tasks.celery_app worker --loglevel=info
+    depends_on:
+      - redis
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  otel_collector:
+    image: otel/opentelemetry-collector
+    ports:
+      - "4317:4317"
+      - "55681:55681"
+    volumes:
+      - ./otel-config.yaml:/etc/otel/config.yaml
